@@ -169,30 +169,31 @@ jobs:
             curl -o /home/ubuntu/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
             # 5. Pull and Run Containers
-            sudo docker pull ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/octa-backend-repo:latest
-            sudo docker pull ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/octa-frontend-repo:latest
+            sudo docker pull ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
+            sudo docker pull ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
 
             sudo docker stop backend || true
             sudo docker rm backend || true
             sudo docker stop frontend || true
             sudo docker rm frontend || true
 
-            # Backend listens on 5001, we map to 5000
+            # Backend listens on 5001, we map to 5000 (as expected by ALB and Frontend rules)
             sudo docker run -d \
               -p 5000:5001 \
               --name backend \
               -v /home/ubuntu/global-bundle.pem:/opt/app/global-bundle.pem \
-              -e DB_USER=octaadmin \
-              -e DB_PASSWORD=Octabyte123 \
-              -e DB_NAME=octabytedb \
+              -e DB_USER=${{ secrets.DB_USER || 'octaadmin' }} \
+              -e DB_PASSWORD=${{ secrets.DB_PASSWORD || 'Octabyte123' }} \
+              -e DB_NAME=${{ secrets.DB_NAME || 'octabytedb' }} \
               -e DB_HOST=my-postgres-db.cnkkua2ykiim.ap-south-1.rds.amazonaws.com \
               -e PGSSLROOTCERT=/opt/app/global-bundle.pem \
-              ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/octa-backend-repo:latest
+              ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
 
+            # Frontend listens on 80
             sudo docker run -d \
               -p 80:80 \
               --name frontend \
-              ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/octa-frontend-repo:latest
+              ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
           EOF
 
   # =========================
