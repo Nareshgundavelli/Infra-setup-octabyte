@@ -286,6 +286,29 @@ resource "aws_lb_target_group_attachment" "tg_attach" {
   port             = 80
 }
 
+resource "aws_lb_target_group" "backend_tg" {
+  name     = "octa-backend-tg"
+  port     = 5000
+  protocol = "HTTP"
+  vpc_id   = aws_vpc.main.id
+
+  health_check {
+    path                = "/health"
+    protocol            = "HTTP"
+    matcher             = "200"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+  }
+}
+
+resource "aws_lb_target_group_attachment" "backend_attach" {
+  target_group_arn = aws_lb_target_group.backend_tg.arn
+  target_id        = aws_instance.terraform-instance.id
+  port             = 5000
+}
+
 resource "aws_lb_listener" "listener" {
   load_balancer_arn = aws_lb.frontend_alb.arn
   port              = 80
@@ -294,6 +317,22 @@ resource "aws_lb_listener" "listener" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.tg.arn
+  }
+}
+
+resource "aws_lb_listener_rule" "backend_rule" {
+  listener_arn = aws_lb_listener.listener.arn
+  priority     = 100
+
+  action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.backend_tg.arn
+  }
+
+  condition {
+    path_pattern {
+      values = ["/api/*"]
+    }
   }
 }
 

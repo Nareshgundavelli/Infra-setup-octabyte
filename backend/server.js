@@ -15,16 +15,27 @@ app.get("/health", (req, res) => {
   res.status(200).send("OK");
 });
 
+const fs = require("fs");
+
 /* =========================
    PostgreSQL Connection
 ========================= */
-const pool = new Pool({
+const poolConfig = {
   user: process.env.DB_USER || "saikumar",
   host: process.env.DB_HOST || "postgres",
   database: process.env.DB_NAME || "saidb",
   password: process.env.DB_PASSWORD || "saikumar123",
   port: 5432,
-});
+};
+
+if (process.env.PGSSLROOTCERT) {
+  poolConfig.ssl = {
+    rejectUnauthorized: true,
+    ca: fs.readFileSync(process.env.PGSSLROOTCERT).toString(),
+  };
+}
+
+const pool = new Pool(poolConfig);
 
 pool.connect()
   .then(() => console.log("✅ PostgreSQL connected"))

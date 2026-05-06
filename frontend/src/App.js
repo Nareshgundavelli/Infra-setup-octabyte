@@ -19,8 +19,8 @@ function App() {
     setLoading(true);
 
     const url = isSignup
-      ? `http://${window.location.hostname}:5000/api/signup`
-      : `http://${window.location.hostname}:5000/api/login`;
+      ? "/api/signup"
+      : "/api/login";
 
     const payload = isSignup
       ? form
