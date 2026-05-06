@@ -1,0 +1,93 @@
+name: octa-pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  AWS_REGION: ap-south-1
+  ECR_FRONTEND: octa-frontend-repo
+  ECR_BACKEND: octa-backend-repo
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Backend test
+        run: |
+          cd backend
+          npm install
+          npm test || true
+      - name: Frontend test
+        run: |
+          cd frontend
+          npm install
+          npm test -- --passWithNoTests || true
+
+  build:
+    needs: test
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build frontend
+        run: docker build -t frontend ./frontend
+      - name: Tag frontend
+        run: docker tag frontend:latest ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
+      - name: Push frontend
+        run: docker push ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
+      - name: Build backend
+        run: docker build -t backend ./backend
+      - name: Tag backend
+        run: docker tag backend:latest ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
+      - name: Push backend
+        run: docker push ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    env:
+      # Make these available to the steps
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+    steps:
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/key.pem
+          chmod 600 ~/.ssh/key.pem
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+      - name: Deploy to EC2
+        run: |
+          ssh -i ~/.ssh/key.pem ec2-user@${{ secrets.EC2_HOST }} << EOF
+            sudo systemctl start docker || true
+            aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+            docker pull $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_BACKEND:latest
+            docker pull $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_FRONTEND:latest
+            docker stop backend || true && docker rm backend || true
+            docker run -d -p 5000:5000 --name backend $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_BACKEND:latest
+            docker stop frontend || true && docker rm frontend || true
+            docker run -d -p 80:80 --name frontend $ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_FRONTEND:latest
+          EOF
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          ECR_BACKEND: ${{ env.ECR_BACKEND }}
+          ECR_FRONTEND: ${{ env.ECR_FRONTEND }}
+          ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+
+  notify:
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Pipeline failed"
+      

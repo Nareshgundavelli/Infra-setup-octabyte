@@ -1,0 +1,79 @@
+body {
+  margin: 0;
+  background: linear-gradient(135deg, #1d2671, #c33764);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.container {
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.card {
+  background: #fff;
+  width: 380px;
+  padding: 30px;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  text-align: center;
+}
+
+.card h2 {
+  margin-bottom: 20px;
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 15px;
+  border-radius: 6px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+}
+
+input:focus {
+  outline: none;
+  border-color: #6c63ff;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background: #6c63ff;
+  border: none;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #5848c2;
+}
+
+button:disabled {
+  background: gray;
+}
+
+.toggle {
+  margin-top: 15px;
+  font-size: 14px;
+}
+
+.toggle span {
+  color: #6c63ff;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.response {
+  margin-top: 20px;
+  background: #f4f4f4;
+  padding: 10px;
+  font-size: 13px;
+  border-radius: 6px;
+  text-align: left;
+}
+
