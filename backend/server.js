@@ -70,31 +70,42 @@ pool.query(`
 ========================= */
 app.post("/api/signup", async (req, res) => {
   const { username, email, password } = req.body;
+  console.log(`[SIGNUP] Attempt for email: ${email}`);
 
   try {
-    await pool.query(
-      "INSERT INTO users (username, email, password) VALUES ($1, $2, $3)",
+    const result = await pool.query(
+      "INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id",
       [username, email, password]
     );
+    console.log(`[SIGNUP] Success! New user ID: ${result.rows[0].id}`);
     res.json({ message: "Signup successful" });
   } catch (err) {
+    console.error(`[SIGNUP] Error: ${err.message}`);
     res.status(409).json({ message: "User already exists" });
   }
 });
 
 app.post("/api/login", async (req, res) => {
   const { email, password } = req.body;
+  console.log(`[LOGIN] Attempt for email: ${email}`);
 
-  const result = await pool.query(
-    "SELECT * FROM users WHERE email=$1 AND password=$2",
-    [email, password]
-  );
+  try {
+    const result = await pool.query(
+      "SELECT * FROM users WHERE email=$1 AND password=$2",
+      [email, password]
+    );
 
-  if (result.rows.length === 0) {
-    return res.status(401).json({ message: "Invalid credentials" });
+    if (result.rows.length === 0) {
+      console.log(`[LOGIN] Failed: Invalid credentials for ${email}`);
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
+
+    console.log(`[LOGIN] Success! User: ${result.rows[0].username}`);
+    res.json({ message: "Login successful" });
+  } catch (err) {
+    console.error(`[LOGIN] Error: ${err.message}`);
+    res.status(500).json({ message: "Internal server error" });
   }
-
-  res.json({ message: "Login successful" });
 });
 
 /* =========================
