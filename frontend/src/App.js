@@ -19,8 +19,8 @@ function App() {
     setLoading(true);
 
     const url = isSignup
-      ? "http://13.232.98.155:30051/api/signup"
-      : "http://13.232.98.155:30051/api/login";
+      ? `http://${window.location.hostname}:5000/api/signup`
+      : `http://${window.location.hostname}:5000/api/login`;
 
     const payload = isSignup
       ? form

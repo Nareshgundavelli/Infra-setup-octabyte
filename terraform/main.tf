@@ -77,6 +77,33 @@ resource "aws_route_table_association" "private" {
   route_table_id = aws_route_table.private.id
 }
 
+resource "aws_iam_role" "ec2_ecr_role" {
+  name = "ec2-ecr-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ec2.amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "ecr_read_only" {
+  role       = aws_iam_role.ec2_ecr_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly"
+}
+
+resource "aws_iam_instance_profile" "ec2_profile" {
+  name = "ec2-ecr-instance-profile"
+  role = aws_iam_role.ec2_ecr_role.name
+}
+
 resource "aws_instance" "terraform-instance" {
     ami           = var.ami
     instance_type = var.instance_type
@@ -84,6 +111,7 @@ resource "aws_instance" "terraform-instance" {
     key_name = var.key_name
     associate_public_ip_address = true
     vpc_security_group_ids = [aws_security_group.octa_sg.id]
+    iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
      user_data = <<-EOF
               #!/bin/bash
@@ -119,6 +147,13 @@ resource "aws_security_group" "octa_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
     security_groups = [aws_security_group.alb_sg.id]
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   ingress {
