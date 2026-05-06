@@ -164,8 +164,9 @@ jobs:
             
             aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
 
-            # 4. Download RDS SSL Certificate
-            curl -o $HOME/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+            # 4. Download RDS SSL Certificate (Ensuring it's a file, not a directory)
+            sudo rm -rf /home/ubuntu/global-bundle.pem
+            curl -o /home/ubuntu/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
             # 5. Pull and Run Containers
             sudo docker pull ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/octa-backend-repo:latest
@@ -180,12 +181,12 @@ jobs:
             sudo docker run -d \
               -p 5000:5001 \
               --name backend \
-              -v $HOME/global-bundle.pem:/app/global-bundle.pem \
+              -v /home/ubuntu/global-bundle.pem:/opt/app/global-bundle.pem \
               -e DB_USER=octaadmin \
               -e DB_PASSWORD=Octabyte123 \
               -e DB_NAME=octabytedb \
               -e DB_HOST=my-postgres-db.cnkkua2ykiim.ap-south-1.rds.amazonaws.com \
-              -e PGSSLROOTCERT=/app/global-bundle.pem \
+              -e PGSSLROOTCERT=/opt/app/global-bundle.pem \
               ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com/octa-backend-repo:latest
 
             sudo docker run -d \
