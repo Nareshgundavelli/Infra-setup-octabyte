@@ -115,11 +115,11 @@ resource "aws_instance" "terraform-instance" {
 
      user_data = <<-EOF
               #!/bin/bash
-              yum update -y
-              yum install docker -y
+              apt-get update -y
+              apt-get install -y docker.io
               systemctl start docker
               systemctl enable docker
-              usermod -aG docker ec2-user
+              usermod -aG docker ubuntu
               EOF
 
     tags = {

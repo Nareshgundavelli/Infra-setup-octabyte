@@ -120,8 +120,14 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
           mkdir -p $HOME/.ssh
-          echo "$EC2_SSH_KEY" > $HOME/.ssh/key.pem
+          printf "%s" "$EC2_SSH_KEY" > $HOME/.ssh/key.pem
+          # Ensure file ends with a newline and has correct permissions
+          sed -i '$a\' $HOME/.ssh/key.pem
           chmod 600 $HOME/.ssh/key.pem
+          
+          echo "Checking SSH key fingerprint..."
+          ssh-keygen -l -f $HOME/.ssh/key.pem || echo "Error: Invalid key format"
+          
           ssh-keyscan -H -T 10 "$EC2_HOST" >> $HOME/.ssh/known_hosts || true
 
       - name: Deploy Application
@@ -130,7 +136,7 @@ jobs:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i $HOME/.ssh/key.pem ec2-user@$EC2_HOST << EOF
+          ssh -o StrictHostKeyChecking=no -i $HOME/.ssh/key.pem ubuntu@$EC2_HOST << EOF
 
             sudo systemctl start docker || true
 
