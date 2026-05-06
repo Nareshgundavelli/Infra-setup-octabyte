@@ -18,6 +18,7 @@ app.use((req, res, next) => {
    Health Check (FIRST)
 ========================= */
 app.get("/health", (req, res) => {
+  console.log("ALB Health Check received");
   res.status(200).send("OK");
 });
 
@@ -60,7 +61,9 @@ pool.query(`
     email VARCHAR(100) UNIQUE,
     password VARCHAR(100)
   )
-`).catch(err => console.error("Table creation error:", err.message));
+`)
+  .then(() => console.log("✅ Users table ready"))
+  .catch(err => console.error("Table creation error:", err.message));
 
 /* =========================
    APIs
