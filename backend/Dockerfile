@@ -1,7 +1,10 @@
 
-FROM node:18
+FROM node:18-alpine
 
 WORKDIR /opt/app
+
+# Upgrade packages to fix security vulnerabilities
+RUN apk update && apk upgrade --no-cache
 
 COPY package*.json ./
 
