@@ -17,6 +17,6 @@ Infrastructure: Terraform
 
 ## Access
 - **Frontend:** http://octa-alb-170037906.ap-south-1.elb.amazonaws.com
-- **Backend Health:** http://octa-alb-170037906.ap-south-1.elb.amazonaws.com/health
+- **Backend Health:** http://octa-alb-170037906.ap-south-1.elb.amazonaws.com/api/health
 - **EC2 Public IP:** 13.233.97.156
 - **RDS Endpoint:** my-postgres-db.cnkkua2ykiim.ap-south-1.rds.amazonaws.com

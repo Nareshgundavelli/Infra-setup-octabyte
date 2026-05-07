@@ -17,7 +17,7 @@ app.use((req, res, next) => {
 /* =========================
    Health Check (FIRST)
 ========================= */
-app.get("/health", (req, res) => {
+app.get("/api/health", (req, res) => {
   console.log("ALB Health Check received");
   res.status(200).send("OK");
 });
