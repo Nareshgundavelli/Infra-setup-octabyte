@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-
   pull_request:
     branches:
       - main
@@ -15,13 +14,11 @@ env:
   ECR_BACKEND: octa-backend-repo
 
 jobs:
-
   # =========================
-  # TEST JOB
+  # 1. TEST (unit & integration)
   # =========================
   test:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -31,26 +28,25 @@ jobs:
         with:
           node-version: 20
 
-      - name: Backend Test
+      - name: Backend Tests
         run: |
           cd backend
           npm install
           npm test || true
 
-      - name: Frontend Test
+      - name: Frontend Tests
         run: |
           cd frontend
           npm install
           npm test -- --passWithNoTests || true
 
   # =========================
-  # BUILD & PUSH DOCKER IMAGES
+  # 2. BUILD, SCAN, SMOKE TEST & PUSH (only on merge to main)
   # =========================
   build:
     needs: test
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -65,46 +61,81 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
-      # ---------- FRONTEND ----------
-      - name: Build Frontend Docker Image
-        run: |
-          docker build -t frontend ./frontend
+      # Vulnerability scan on source code
+      - name: Trivy Filesystem Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          format: table
+          exit-code: 1               # Fail on CRITICAL/HIGH
+          ignore-unfixed: true
+          severity: CRITICAL,HIGH
 
-      - name: Tag Frontend Docker Image
-        run: |
-          docker tag frontend:latest \
-          ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
+      # Build images
+      - name: Build Frontend Image
+        run: docker build -t frontend ./frontend
 
-      - name: Push Frontend Docker Image
-        run: |
-          docker push \
-          ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
+      - name: Build Backend Image
+        run: docker build -t backend ./backend
 
-      # ---------- BACKEND ----------
-      - name: Build Backend Docker Image
+      # Smoke test images before push
+      - name: Smoke Test Backend
         run: |
-          docker build -t backend ./backend
+          docker run -d -p 5001:5000 --name backend-test backend:latest
+          sleep 5
+          curl --fail http://localhost:5001/api/health || (docker logs backend-test && exit 1)
+          docker stop backend-test && docker rm backend-test
 
-      - name: Tag Backend Docker Image
+      - name: Smoke Test Frontend
         run: |
-          docker tag backend:latest \
-          ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
+          docker run -d -p 8080:80 --name frontend-test frontend:latest
+          sleep 3
+          curl --fail http://localhost:8080 || (docker logs frontend-test && exit 1)
+          docker stop frontend-test && docker rm frontend-test
 
-      - name: Push Backend Docker Image
+      # Vulnerability scan on images
+      - name: Trivy Scan Frontend Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: frontend:latest
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+      - name: Trivy Scan Backend Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: backend:latest
+          format: table
+          exit-code: 1
+          severity: CRITICAL,HIGH
+
+      # Tag and push to ECR (both latest and commit SHA)
+      - name: Tag & Push Frontend
         run: |
-          docker push \
-          ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
+          docker tag frontend:latest ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
+          docker tag frontend:latest ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:${{ github.sha }}
+          docker push ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
+          docker push ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:${{ github.sha }}
+
+      - name: Tag & Push Backend
+        run: |
+          docker tag backend:latest ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
+          docker tag backend:latest ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:${{ github.sha }}
+          docker push ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
+          docker push ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:${{ github.sha }}
 
   # =========================
-  # DEPLOY TO EC2
+  # 3. PRODUCTION DEPLOYMENT (requires manual approval)
   # =========================
-  deploy:
+  deploy-production:
     needs: build
     runs-on: ubuntu-latest
-
+    environment:
+      name: production          # Manual approval configured here
     env:
       ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
-
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -115,94 +146,106 @@ jobs:
 
       - name: Setup SSH
         shell: bash
-        env:
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
           mkdir -p $HOME/.ssh
-          printf "%s" "$EC2_SSH_KEY" > $HOME/.ssh/key.pem
-          # Ensure file ends with a newline and has correct permissions
-          sed -i '$a\' $HOME/.ssh/key.pem
+          echo "${{ secrets.EC2_SSH_KEY }}" > $HOME/.ssh/key.pem
           chmod 600 $HOME/.ssh/key.pem
-          
-          echo "Checking SSH key fingerprint..."
-          ssh-keygen -l -f $HOME/.ssh/key.pem || echo "Error: Invalid key format"
-          
-          ssh-keyscan -H -T 10 "$EC2_HOST" >> $HOME/.ssh/known_hosts || true
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> $HOME/.ssh/known_hosts
 
-      - name: Deploy Application
+      - name: Deploy to Production
         shell: bash
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
         run: |
-          ssh -o StrictHostKeyChecking=no -i $HOME/.ssh/key.pem ubuntu@$EC2_HOST << EOF
-            # 1. Install Docker if missing
-            if ! command -v docker &> /dev/null; then
-              echo "Installing Docker..."
-              sudo apt-get update -y
-              sudo apt-get install -y docker.io
-              sudo systemctl start docker
-              sudo systemctl enable docker
-              sudo usermod -aG docker ubuntu
-            fi
-
-            # 2. Install AWS CLI if missing
-            if ! command -v aws &> /dev/null; then
-              echo "Installing AWS CLI..."
-              sudo apt-get install -y unzip
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              sudo ./aws/install
-              rm -rf awscliv2.zip ./aws
-            fi
-
-            # 3. Login to ECR (Injecting credentials for immediate success)
-            export AWS_ACCESS_KEY_ID=${{ secrets.AWS_ACCESS_KEY }}
-            export AWS_SECRET_ACCESS_KEY=${{ secrets.AWS_SECRET_KEY }}
-            export AWS_DEFAULT_REGION=ap-south-1
+          ssh -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/key.pem ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+            sudo systemctl start docker || true
             
-            aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
+            # 1. Login to ECR
+            aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin $ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com
 
-            # 4. Download RDS SSL Certificate (Ensuring it's a file, not a directory)
+            # 2. Download RDS SSL Certificate
             sudo rm -rf /home/ubuntu/global-bundle.pem
             curl -o /home/ubuntu/global-bundle.pem https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
 
-            # 5. Pull and Run Containers
-            sudo docker pull ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
-            sudo docker pull ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
-
-            sudo docker stop backend || true
-            sudo docker rm backend || true
-            sudo docker stop frontend || true
-            sudo docker rm frontend || true
-
-            # Backend listens on 5000, we map to 5000
-            sudo docker run -d \
-              -p 5000:5000 \
-              --name backend \
+            # 3. Pull and Run Containers
+            sudo docker pull $ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/octa-backend-repo:latest
+            sudo docker pull $ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/octa-frontend-repo:latest
+            
+            sudo docker stop backend frontend || true
+            sudo docker rm backend frontend || true
+            
+            sudo docker run -d -p 5000:5000 --name backend \
               -v /home/ubuntu/global-bundle.pem:/opt/app/global-bundle.pem \
               -e DB_USER=${{ secrets.DB_USER || 'octaadmin' }} \
               -e DB_PASSWORD=${{ secrets.DB_PASSWORD || 'Octabyte123' }} \
               -e DB_NAME=${{ secrets.DB_NAME || 'octabytedb' }} \
               -e DB_HOST=my-postgres-db.cnkkua2ykiim.ap-south-1.rds.amazonaws.com \
               -e PGSSLROOTCERT=/opt/app/global-bundle.pem \
-              ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_BACKEND }}:latest
-
-            # Frontend listens on 80
-            sudo docker run -d \
-              -p 80:80 \
-              --name frontend \
-              ${{ secrets.ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_FRONTEND }}:latest
+              $ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/octa-backend-repo:latest
+            
+            sudo docker run -d -p 80:80 --name frontend \
+              $ACCOUNT_ID.dkr.ecr.ap-south-1.amazonaws.com/octa-frontend-repo:latest
+            
+            sleep 5
+            curl --fail http://localhost:80 || exit 1
+            curl --fail http://localhost:5000/api/health || exit 1
           EOF
 
   # =========================
-  # FAILURE NOTIFICATION
+  # 4. SUCCESS NOTIFICATION (Slack + Email)
   # =========================
-  notify:
-    if: failure()
+  notify_success:
+    needs: deploy-production
+    if: success() && github.event_name == 'push'
     runs-on: ubuntu-latest
-
     steps:
-      - name: Failure Message
-        run: echo "Pipeline failed"
+      - name: Slack Success
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"✅ Octa production deployment successful"}' \
+          ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Email Success
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "✅ Octa Production Deployment Success"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: "GitHub Actions <${{ secrets.SMTP_FROM_EMAIL }}>"
+          body: |
+            Production deployment succeeded.
+            Repository: ${{ github.repository }}
+            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }}
+
+  # =========================
+  # 5. FAILURE NOTIFICATION (Slack + Email)
+  # =========================
+  notify_failure:
+    needs: [test, build, deploy-production]
+    if: failure() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Failure
+        run: |
+          curl -X POST -H 'Content-type: application/json' \
+          --data '{"text":"❌ Octa pipeline failed"}' \
+          ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Email Failure
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "❌ Octa Pipeline Failed"
+          to: ${{ secrets.NOTIFICATION_EMAIL }}
+          from: "GitHub Actions <${{ secrets.SMTP_FROM_EMAIL }}>"
+          body: |
+            Pipeline failed. Check Actions tab.
+            Repository: ${{ github.repository }}
+            Commit: ${{ github.sha }}
+            Branch: ${{ github.ref_name }}
