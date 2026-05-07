@@ -3,7 +3,7 @@ const cors = require("cors");
 const { Pool } = require("pg");
 
 const app = express();
-const PORT = 5001;
+const PORT = 5000;
 
 app.use(cors());
 app.use(express.json());
@@ -28,10 +28,10 @@ const fs = require("fs");
    PostgreSQL Connection
 ========================= */
 const poolConfig = {
-  user: process.env.DB_USER || "saikumar",
-  host: process.env.DB_HOST || "postgres",
-  database: process.env.DB_NAME || "saidb",
-  password: process.env.DB_PASSWORD || "saikumar123",
+  user: process.env.DB_USER || "octaadmin",
+  host: process.env.DB_HOST || "my-postgres-db.cnkkua2ykiim.ap-south-1.rds.amazonaws.com",
+  database: process.env.DB_NAME || "octabytedb",
+  password: process.env.DB_PASSWORD || "Octabyte123",
   port: 5432,
 };
 

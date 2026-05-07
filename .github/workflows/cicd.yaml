@@ -177,9 +177,9 @@ jobs:
             sudo docker stop frontend || true
             sudo docker rm frontend || true
 
-            # Backend listens on 5001, we map to 5000 (as expected by ALB and Frontend rules)
+            # Backend listens on 5000, we map to 5000
             sudo docker run -d \
-              -p 5000:5001 \
+              -p 5000:5000 \
               --name backend \
               -v /home/ubuntu/global-bundle.pem:/opt/app/global-bundle.pem \
               -e DB_USER=${{ secrets.DB_USER || 'octaadmin' }} \

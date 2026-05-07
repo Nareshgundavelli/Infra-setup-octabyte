@@ -11,6 +11,6 @@ RUN npm install -g pm2
 
 COPY . .
 
-EXPOSE 5001
+EXPOSE 5000
 
 CMD ["pm2-runtime", "server.js", "--name", "backend-app"]

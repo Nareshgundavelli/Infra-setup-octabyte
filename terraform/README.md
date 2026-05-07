@@ -1,23 +1,22 @@
-# React JS CI/CD Automation
+# Octabyte Infrastructure Setup
 
 ## Project Overview
-Frontend: React  
-Backend: Node.js  
-Database: PostgreSQL  
-CI/CD: Jenkins  
-Containerization: Docker  
-Orchestration: Kubernetes (K3s)  
-Security: Trivy  
-Code Quality: SonarQube
+Frontend: React (on EC2, via ALB)
+Backend: Node.js (on EC2, via ALB)
+Database: PostgreSQL (RDS)
+CI/CD: GitHub Actions
+Containerization: Docker
+Infrastructure: Terraform
 
 ## Features
-- Automated Jenkins Pipeline
-- Docker Build & Deploy
-- Kubernetes Deployment
-- PostgreSQL Integration
-- Security Scanning
-- Code Quality Analysis
+- Automated GitHub Actions Pipeline
+- Docker Build & Push to ECR
+- Deploy to EC2 via SSH
+- ALB Routing (/api/* to backend)
+- RDS PostgreSQL Integration
 
 ## Access
-Frontend: http://YOUR_PUBLIC_IP:30001
-Backend: http://YOUR_PUBLIC_IP:30051/health
+- **Frontend:** http://octa-alb-170037906.ap-south-1.elb.amazonaws.com
+- **Backend Health:** http://octa-alb-170037906.ap-south-1.elb.amazonaws.com/health
+- **EC2 Public IP:** 13.233.97.156
+- **RDS Endpoint:** my-postgres-db.cnkkua2ykiim.ap-south-1.rds.amazonaws.com
