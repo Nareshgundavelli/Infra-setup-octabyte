@@ -12,8 +12,9 @@
 - [x] Step 2: Verify GitHub secrets (EC2_HOST, EC2_SSH_KEY, AWS creds).
     - *Note: EC2_HOST should be updated to 13.233.97.156*
 - [x] Step 2b: Setup .env and .gitignore for secrets management.
+- [x] Step 1d: Fix Trivy HIGH vulnerabilities in backend image by upgrading base image and npm.
 - [ ] Step 4: Test pipeline via GitHub push/PR.
 - [ ] Step 5: Monitor deploy, health checks.
 - [ ] Complete: Remove TODO.md
 
-Current: Ready for Step 2.
+Current: Ready for Step 4 (Pipeline Testing).

@@ -1,16 +1,15 @@
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 WORKDIR /opt/app
 
-# Upgrade packages to fix security vulnerabilities
-RUN apk update && apk upgrade --no-cache
+# Upgrade OS packages and npm to fix security vulnerabilities
+RUN apk update && apk upgrade --no-cache && \
+    npm install -g npm@latest pm2@latest
 
 COPY package*.json ./
 
-RUN npm install
-
-RUN npm install -g pm2
+RUN npm install --omit=dev
 
 COPY . .
 
