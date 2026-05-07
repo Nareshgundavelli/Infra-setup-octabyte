@@ -18,9 +18,10 @@ function App() {
     e.preventDefault();
     setLoading(true);
 
+    const baseUrl = import.meta.env.VITE_API_URL || "";
     const url = isSignup
-      ? "/api/signup"
-      : "/api/login";
+      ? `${baseUrl}/api/signup`
+      : `${baseUrl}/api/login`;
 
     const payload = isSignup
       ? form

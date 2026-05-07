@@ -8,9 +8,10 @@
 ## Steps:
 - [x] Step 1: Update .github/workflows/cicd.yaml with debug, latest action version, improved script.
 - [x] Step 1b: Align backend port (5000) and DB credentials across code and CI/CD.
-- [ ] Step 2: Verify GitHub secrets (EC2_HOST, EC2_SSH_KEY, AWS creds).
+- [x] Step 1c: Migrate frontend to Vite and resolve security vulnerabilities.
+- [x] Step 2: Verify GitHub secrets (EC2_HOST, EC2_SSH_KEY, AWS creds).
     - *Note: EC2_HOST should be updated to 13.233.97.156*
-- [ ] Step 3: EC2 server setup (public key, Docker/AWS CLI, SG).
+- [x] Step 2b: Setup .env and .gitignore for secrets management.
 - [ ] Step 4: Test pipeline via GitHub push/PR.
 - [ ] Step 5: Monitor deploy, health checks.
 - [ ] Complete: Remove TODO.md
