@@ -10,13 +10,20 @@ echo "🚀 Starting Fast System Setup..."
 apt-get update -y
 apt-get install -y docker.io unzip curl
 
-# 2. Install AWS CLI (Required for ECR login during deployment)
-echo "Installing AWS CLI..."
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip -q awscliv2.zip
-./aws/install
+# 2. Install/Update AWS CLI (Required for ECR login)
+if command -v aws &> /dev/null; then
+    echo "AWS CLI already installed. Updating..."
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip -q -o awscliv2.zip
+    sudo ./aws/install --update
+else
+    echo "Installing AWS CLI..."
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip -q -o awscliv2.zip
+    sudo ./aws/install
+fi
 rm -rf awscliv2.zip ./aws
-echo "✅ AWS CLI installed."
+echo "✅ AWS CLI ready."
 
 # 3. Start and Enable Docker
 systemctl start docker
@@ -34,28 +41,28 @@ mkdir -p $MONITORING_DIR/prometheus
 mkdir -p $MONITORING_DIR/grafana/provisioning/datasources
 mkdir -p $MONITORING_DIR/grafana/provisioning/dashboards
 
-# 6. Create Monitoring Configuration Files
-cat <<'COMPOSE' > $MONITORING_DIR/docker-compose.yml
+# 6. Create Monitoring Configuration Files (Cleaned of Windows CRLF)
+cat <<'COMPOSE' | tr -d '\r' > $MONITORING_DIR/docker-compose.yml
 ${docker_compose_content}
 COMPOSE
 
-cat <<'PROM' > $MONITORING_DIR/prometheus/prometheus.yml
+cat <<'PROM' | tr -d '\r' > $MONITORING_DIR/prometheus/prometheus.yml
 ${prometheus_yml_content}
 PROM
 
-cat <<'DS' > $MONITORING_DIR/grafana/provisioning/datasources/datasource.yml
+cat <<'DS' | tr -d '\r' > $MONITORING_DIR/grafana/provisioning/datasources/datasource.yml
 ${datasource_yml_content}
 DS
 
-cat <<'DB' > $MONITORING_DIR/grafana/provisioning/dashboards/dashboards.yml
+cat <<'DB' | tr -d '\r' > $MONITORING_DIR/grafana/provisioning/dashboards/dashboards.yml
 ${dashboards_yml_content}
 DB
 
-cat <<'INFRA' > $MONITORING_DIR/grafana/provisioning/dashboards/infrastructure.json
+cat <<'INFRA' | tr -d '\r' > $MONITORING_DIR/grafana/provisioning/dashboards/infrastructure.json
 ${infra_dash_content}
 INFRA
 
-cat <<'APP' > $MONITORING_DIR/grafana/provisioning/dashboards/application.json
+cat <<'APP' | tr -d '\r' > $MONITORING_DIR/grafana/provisioning/dashboards/application.json
 ${app_dash_content}
 APP
 
