@@ -157,9 +157,19 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=accept-new -i $HOME/.ssh/key.pem ubuntu@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
-            sudo systemctl start docker || true
             
-            # 1. Login to ECR
+            # 1. Wait for AWS CLI and Docker to be ready (user_data script)
+            echo "Waiting for system setup to complete..."
+            for i in {1..30}; do
+              if command -v aws &> /dev/null && command -v docker &> /dev/null; then
+                echo "System ready!"
+                break
+              fi
+              echo "Waiting... ($i/30)"
+              sleep 10
+            done
+
+            # 2. Login to ECR
             aws ecr get-login-password --region ap-south-1 | sudo docker login --username AWS --password-stdin ${{ secrets.ACCOUNT_ID }}.dkr.ecr.ap-south-1.amazonaws.com
 
             # 2. Download RDS SSL Certificate
