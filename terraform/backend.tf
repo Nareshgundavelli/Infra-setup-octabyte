@@ -34,9 +34,9 @@ resource "aws_dynamodb_table" "tf_lock" {
   }
 }
 terraform {
-  backend "s3" {
-    bucket         = "octa-bucket-poiuytr"
-    key            = "infra/terraform.tfstate"
+ backend "s3" {
+   bucket         = "octa-bucket-poiuytr"
+   key            = "infra/terraform.tfstate"
     region         = "ap-south-1"
     dynamodb_table = "terraform-lock-table"
   }
