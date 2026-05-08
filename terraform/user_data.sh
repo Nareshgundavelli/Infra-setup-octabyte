@@ -42,6 +42,7 @@ mkdir -p $MONITORING_DIR/grafana/provisioning/datasources
 mkdir -p $MONITORING_DIR/grafana/provisioning/dashboards
 
 # 6. Create Monitoring Configuration Files (Cleaned of Windows CRLF)
+# This ensures that Splunk, Prometheus, and Grafana are 100% automated.
 cat <<'COMPOSE' | tr -d '\r' > $MONITORING_DIR/docker-compose.yml
 ${docker_compose_content}
 COMPOSE

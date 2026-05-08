@@ -60,6 +60,8 @@ services:
     environment:
       - SPLUNK_START_ARGS=--accept-license
       - SPLUNK_PASSWORD=SplunkAdmin123
+      - SPLUNK_ACCEPT_LICENSE=yes
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
     ports:
       - "8000:8000"
       - "8088:8088"
