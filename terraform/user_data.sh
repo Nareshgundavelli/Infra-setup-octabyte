@@ -4,9 +4,9 @@ set -e
 # Redirect output to log file
 exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
 
-echo "🚀 Starting System Setup..."
+echo "🚀 Starting Fast System Setup..."
 
-# 1. Update and Install Dependencies
+# 1. Update and Install Minimal Dependencies
 apt-get update -y
 apt-get install -y docker.io unzip curl
 
@@ -20,19 +20,13 @@ DOCKER_COMPOSE_VERSION="v2.20.2"
 curl -L "https://github.com/docker/compose/releases/download/$${DOCKER_COMPOSE_VERSION}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
-# 4. Install AWS CLI
-curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-unzip awscliv2.zip
-./aws/install
-rm -rf awscliv2.zip ./aws
-
-# 5. Create Monitoring Directory Structure
+# 4. Create Monitoring Directory Structure
 MONITORING_DIR="/home/ubuntu/monitoring"
 mkdir -p $MONITORING_DIR/prometheus
 mkdir -p $MONITORING_DIR/grafana/provisioning/datasources
 mkdir -p $MONITORING_DIR/grafana/provisioning/dashboards
 
-# 6. Create Monitoring Configuration Files
+# 5. Create Monitoring Configuration Files
 cat <<'COMPOSE' > $MONITORING_DIR/docker-compose.yml
 ${docker_compose_content}
 COMPOSE
@@ -57,11 +51,21 @@ cat <<'APP' > $MONITORING_DIR/grafana/provisioning/dashboards/application.json
 ${app_dash_content}
 APP
 
-# 7. Set Permissions
+# 6. Start Monitoring Stack (PRIORITY)
 chown -R ubuntu:ubuntu $MONITORING_DIR
-
-# 8. Start Monitoring Stack
 cd $MONITORING_DIR
 docker-compose up -d
 
-echo "✅ Monitoring stack is up and running!"
+echo "✅ Monitoring stack is starting!"
+
+# 7. Install AWS CLI in the BACKGROUND (Slow process)
+(
+  echo "Installing AWS CLI in background..."
+  curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+  unzip -q awscliv2.zip
+  ./aws/install
+  rm -rf awscliv2.zip ./aws
+  echo "✅ AWS CLI installed."
+) &
+
+echo "🚀 Setup script finished (AWS CLI still installing in background)."

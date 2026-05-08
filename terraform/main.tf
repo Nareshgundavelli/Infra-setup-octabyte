@@ -114,12 +114,12 @@ resource "aws_instance" "terraform-instance" {
     iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
     user_data = templatefile("${path.module}/user_data.sh", {
-      docker_compose_content = file("${path.module}/../monitoring/docker-compose.yml")
-      prometheus_yml_content = file("${path.module}/../monitoring/prometheus/prometheus.yml")
-      datasource_yml_content = file("${path.module}/../monitoring/grafana/provisioning/datasources/datasource.yml")
-      dashboards_yml_content = file("${path.module}/../monitoring/grafana/provisioning/dashboards/dashboards.yml")
-      infra_dash_content     = file("${path.module}/../monitoring/grafana/provisioning/dashboards/infrastructure.json")
-      app_dash_content       = file("${path.module}/../monitoring/grafana/provisioning/dashboards/application.json")
+      docker_compose_content = file("${path.module}/monitoring/docker-compose.yml")
+      prometheus_yml_content = file("${path.module}/monitoring/prometheus/prometheus.yml")
+      datasource_yml_content = file("${path.module}/monitoring/grafana/provisioning/datasources/datasource.yml")
+      dashboards_yml_content = file("${path.module}/monitoring/grafana/provisioning/dashboards/dashboards.yml")
+      infra_dash_content     = file("${path.module}/monitoring/grafana/provisioning/dashboards/infrastructure.json")
+      app_dash_content       = file("${path.module}/monitoring/grafana/provisioning/dashboards/application.json")
     })
 
     tags = {
