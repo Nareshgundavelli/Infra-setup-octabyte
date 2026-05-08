@@ -2,17 +2,56 @@ require('dotenv').config();
 const express = require("express");
 const cors = require("cors");
 const { Pool } = require("pg");
+const promClient = require("prom-client");
 
 const app = express();
 const PORT = 5000;
 
+// Prometheus Metrics Setup
+const register = new promClient.Registry();
+promClient.collectDefaultMetrics({ register });
+
+const httpRequestDurationMicroseconds = new promClient.Histogram({
+  name: "http_request_duration_seconds",
+  help: "Duration of HTTP requests in seconds",
+  labelNames: ["method", "route", "status_code"],
+  buckets: [0.1, 0.3, 0.5, 0.7, 1, 3, 5, 7, 10],
+});
+register.registerMetric(httpRequestDurationMicroseconds);
+
+const httpRequestsTotal = new promClient.Counter({
+  name: "http_requests_total",
+  help: "Total number of HTTP requests",
+  labelNames: ["method", "route", "status_code"],
+});
+register.registerMetric(httpRequestsTotal);
+
 app.use(cors());
 app.use(express.json());
 
-// Request Logger
+// Request Logger & Metrics Middleware
 app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  const start = Date.now();
+  res.on("finish", () => {
+    const duration = (Date.now() - start) / 1000;
+    const route = req.route ? req.route.path : req.path;
+    httpRequestDurationMicroseconds
+      .labels(req.method, route, res.statusCode)
+      .observe(duration);
+    httpRequestsTotal
+      .labels(req.method, route, res.statusCode)
+      .inc();
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url} ${res.statusCode} - ${duration}s`);
+  });
   next();
+});
+
+/* =========================
+   Metrics Endpoint
+========================= */
+app.get("/metrics", async (req, res) => {
+  res.set("Content-Type", register.contentType);
+  res.end(await register.metrics());
 });
 
 /* =========================

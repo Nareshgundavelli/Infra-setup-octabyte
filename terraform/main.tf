@@ -113,20 +113,14 @@ resource "aws_instance" "terraform-instance" {
     vpc_security_group_ids = [aws_security_group.octa_sg.id]
     iam_instance_profile = aws_iam_instance_profile.ec2_profile.name
 
-     user_data = <<-EOF
-              #!/bin/bash
-              apt-get update -y
-              apt-get install -y docker.io unzip
-              systemctl start docker
-              systemctl enable docker
-              usermod -aG docker ubuntu
-
-              # Install AWS CLI
-              curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-              unzip awscliv2.zip
-              ./aws/install
-              rm -rf awscliv2.zip ./aws
-              EOF
+    user_data = templatefile("${path.module}/user_data.sh", {
+      docker_compose_content = file("${path.module}/../monitoring/docker-compose.yml")
+      prometheus_yml_content = file("${path.module}/../monitoring/prometheus/prometheus.yml")
+      datasource_yml_content = file("${path.module}/../monitoring/grafana/provisioning/datasources/datasource.yml")
+      dashboards_yml_content = file("${path.module}/../monitoring/grafana/provisioning/dashboards/dashboards.yml")
+      infra_dash_content     = file("${path.module}/../monitoring/grafana/provisioning/dashboards/infrastructure.json")
+      app_dash_content       = file("${path.module}/../monitoring/grafana/provisioning/dashboards/application.json")
+    })
 
     tags = {
         Name = var.instance_name
@@ -165,6 +159,42 @@ resource "aws_security_group" "octa_sg" {
   ingress {
     from_port   = 443
     to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # Monitoring Ports
+  ingress {
+    from_port   = 3000
+    to_port     = 3000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 9090
+    to_port     = 9090
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8000
+    to_port     = 8000
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 8088
+    to_port     = 8088
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 9100
+    to_port     = 9100
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
